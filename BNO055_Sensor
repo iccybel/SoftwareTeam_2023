@@ -1,0 +1,72 @@
+import time
+from Adafruit_BNO055 import BNO055
+
+# Conversion factors for acceleration and angular velocity
+ACC_FACTOR = 9.81
+GYR_FACTOR = 1.0 / 16.0
+
+# Initialize the BNO055 sensor.
+bno = BNO055.BNO055()
+
+# Initialize the velocity and position variables.
+vx = vy = vz = x = y = z = 0
+
+# Initialize the time variable.
+t0 = time.time()
+
+# Set the operating mode to NDOF.
+bno.set_mode(BNO055.OPERATION_MODE_NDOF)
+
+# Read the orientation and velocity data.
+while True:
+    # Read the acceleration and angular velocity data.
+    x_acc, y_acc, z_acc = bno.read_linear_acceleration()
+    x_gyr, y_gyr, z_gyr = bno.read_gyroscope()
+
+    # Convert acceleration to m/s^2.
+    x_acc, y_acc, z_acc = [ACC_FACTOR * i for i in (x_acc, y_acc, z_acc)]
+
+    # Convert angular velocity to degrees per second.
+    x_gyr, y_gyr, z_gyr = [GYR_FACTOR * i for i in (x_gyr, y_gyr, z_gyr)]
+
+    # Calculate the time interval between readings.
+    t1 = time.time()
+    dt = t1 - t0
+    t0 = t1
+
+    # Integrate the acceleration values to get the velocity.
+    vx += x_acc * dt
+    vy += y_acc * dt
+    vz += z_acc * dt
+
+    # Calculate the new position based on the velocity.
+    x += vx * dt
+    y += vy * dt
+    z += vz * dt
+
+    # Read the orientation data.
+    heading, roll, pitch = bno.read_euler()
+
+    # Determine the orientation.
+    if abs(roll) > 45:
+        if roll > 0:
+            orientation = 'Tilting Right'
+        else:
+            orientation = 'Tilting Left'
+    elif abs(pitch) > 45:
+        if pitch > 0:
+            orientation = 'Tilting Forward'
+        else:
+            orientation = 'Tilting Backward'
+    else:
+        if z_acc > 0:
+            orientation = 'Moving Up'
+        else:
+            orientation = 'Moving Down'
+
+    # Print the data.
+    print('Orientation={0} Heading={1:0.2F} Roll={2:0.2F} Pitch={3:0.2F} X={4:0.2F}m/s Y={5:0.2F}m/s Z={6:0.2F}m/s X_Gyr={7:0.2F}°/s Y_Gyr={8:0.2F}°/s Z_Gyr={9:0.2F}°/s'.format(
+        orientation, heading, roll, pitch, vx, vy, vz, x_gyr, y_gyr, z_gyr))
+
+    # Wait for a short period of time before reading again.
+    time.sleep(5)
